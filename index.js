@@ -176,11 +176,9 @@ app.get('/fetch/users', async (req, res) => {
     const swipesSnapshot = await swipesRef.get();
     const swipedUserIds = swipesSnapshot.docs.map(doc => doc.id);
 
-    // Combine excluded user IDs
-    const excludedUserIds = [...passedUserIds, ...swipedUserIds];
-    console.log("excludedUserIds", excludedUserIds);
-
-    // Fetch users from MongoDB with pagination
+    // Combine excluded user IDs (left swipes, right swipes, and the requesting user ID)
+    const excludedUserIds = [...passedUserIds, ...swipedUserIds, userId];
+    // Fetch users from MongoDB with pagination, excluding the current user and users they've interacted with
     const totalUsers = await User.countDocuments({ id: { $nin: excludedUserIds } });
     const users = await User.find({ id: { $nin: excludedUserIds } })
       .skip((page - 1) * limit)
@@ -201,6 +199,7 @@ app.get('/fetch/users', async (req, res) => {
     res.status(500).json({ message: 'Server error', errorCode: 'ERR_SERVER', error: err });
   }
 });
+
 
 
 
