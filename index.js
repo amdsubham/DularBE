@@ -2,10 +2,16 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+const admin = require('firebase-admin');
+const serviceAccount = require('./manjh-47d12-2f07b7204d73.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 // Load environment variables from .env file
 dotenv.config();
-
+const firestore = admin.firestore();
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -25,6 +31,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   photoUrl: { type: String },
   pic: { type: String },
+  oneSignalId: { type: String },
   rating: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   lastUpdated: { type: Date, default: Date.now }
@@ -34,7 +41,7 @@ const User = mongoose.model('User', userSchema);
 
 // Create User
 app.post('/users', async (req, res) => {
-  const { id, age, email, job, name, photoUrl, pic, rating } = req.body;
+  const { id, age, email, job, name, photoUrl, pic, rating, oneSignalId } = req.body;
 
   if (!id || !name || !email) {
     return res.status(400).json({ message: 'ID, Name, and Email are required', errorCode: 'ERR_MISSING_FIELDS' });
@@ -47,7 +54,7 @@ app.post('/users', async (req, res) => {
     }
 
     const newUser = new User({
-      id, age, email, job, name, photoUrl, pic, rating
+      id, age, email, job, name, photoUrl, pic, rating, oneSignalId
     });
 
     await newUser.save();
@@ -100,6 +107,7 @@ app.get('/users', async (req, res) => {
 
 // Get user by ID
 app.get('/users/:id', async (req, res) => {
+  console.log("Fetching user with ID:", req.params.id); // Debug log
   try {
     const user = await User.findOne({ id: req.params.id });
     if (user) {
@@ -108,9 +116,11 @@ app.get('/users/:id', async (req, res) => {
       res.status(404).json({ message: 'User not found', errorCode: 'ERR_USER_NOT_FOUND' });
     }
   } catch (err) {
+    console.error(err); // Log the error
     res.status(500).json({ message: 'Server error', errorCode: 'ERR_SERVER', error: err });
   }
 });
+
 
 // Update user by ID
 app.put('/users/:id', async (req, res) => {
@@ -145,6 +155,55 @@ app.delete('/users/:id', async (req, res) => {
   }
 });
 
+// Get users excluding left and right swiped users
+// Get users excluding left and right swiped users with pagination
+app.get('/fetch/users', async (req, res) => {
+  const { userId, page = 1, limit = 10 } = req.query;
+
+  console.log("userId", userId);
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required', errorCode: 'ERR_MISSING_USER_ID' });
+  }
+
+  try {
+    // Fetch left swipes from Firestore
+    const passesRef = firestore.collection('tinder_profiles').doc(userId).collection('left_swipes');
+    const passesSnapshot = await passesRef.get();
+    const passedUserIds = passesSnapshot.docs.map(doc => doc.id);
+
+    // Fetch right swipes from Firestore
+    const swipesRef = firestore.collection('tinder_profiles').doc(userId).collection('right_swipes');
+    const swipesSnapshot = await swipesRef.get();
+    const swipedUserIds = swipesSnapshot.docs.map(doc => doc.id);
+
+    // Combine excluded user IDs
+    const excludedUserIds = [...passedUserIds, ...swipedUserIds];
+    console.log("excludedUserIds", excludedUserIds);
+
+    // Fetch users from MongoDB with pagination
+    const totalUsers = await User.countDocuments({ id: { $nin: excludedUserIds } });
+    const users = await User.find({ id: { $nin: excludedUserIds } })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'No available users found', errorCode: 'ERR_NO_USERS_FOUND' });
+    }
+
+    res.json({
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: parseInt(page),
+      users
+    });
+  } catch (err) {
+    console.error(err); // Log the error
+    res.status(500).json({ message: 'Server error', errorCode: 'ERR_SERVER', error: err });
+  }
+});
+
+
+
 // Handle any other unmatched routes
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found', errorCode: 'ERR_ROUTE_NOT_FOUND' });
@@ -153,3 +212,4 @@ app.use((req, res) => {
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
+
