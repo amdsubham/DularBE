@@ -1,0 +1,19 @@
+{
+  "name": "express-backend",
+  "version": "1.0.0",
+  "description": "A backend setup with Express and Nodemon for CRUD operations",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.17.1",
+    "mongoose": "^8.7.2"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
+  }
+}
