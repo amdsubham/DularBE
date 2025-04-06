@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const admin = require('firebase-admin');
 const serviceAccount = require('./manjh-47d12-2f07b7204d73.json');
+const cors = require('cors');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -14,6 +15,9 @@ dotenv.config();
 const firestore = admin.firestore();
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Enable CORS (MUST be before routes)
+app.use(cors());
 
 app.use(bodyParser.json());
 
