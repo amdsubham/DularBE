@@ -17,7 +17,16 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Enable CORS (MUST be before routes)
-app.use(cors());
+app.use(cors({
+  origin: '*', // Allow all origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+
+// Handle preflight requests
+app.options('*', cors());
 
 app.use(bodyParser.json());
 
